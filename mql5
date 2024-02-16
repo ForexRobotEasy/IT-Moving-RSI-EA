@@ -1,0 +1,104 @@
+mql5
+//+------------------------------------------------------------------+
+//|                                        IT Moving RSI EA          |
+//|                                        forexroboteasy.com        |
+//|                                        Forex Robot Easy Team      |
+//+------------------------------------------------------------------+
+
+// Include necessary libraries
+#include <Trade\Trade.mqh>
+#include <MovingAverages\MovingAverages.mqh>
+#include <Indicators\RSI\RSI.mqh>
+
+// Define input parameters
+input int RSI_Period = 14;                    // RSI period
+input int MA_Period = 20;                     // Moving Average period
+input double StopLoss = 100;                  // Stop Loss level in points
+input double TakeProfit = 200;                // Take Profit level in points
+input double LotSize = 0.1;                   // Lot size for trading
+
+// Define global variables
+CTrade trade;                                 // Trade object
+CMovingAverages ma;                           // Moving Averages object
+CRSI rsi;                                     // RSI object
+
+//+------------------------------------------------------------------+
+//| Custom initialization function                                   |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+   // Set up Moving Averages
+   ma.SetSymbol(_Symbol);
+   ma.SetPeriod(MA_Period);
+
+   // Set up RSI
+   rsi.SetSymbol(_Symbol);
+   rsi.SetPeriod(RSI_Period);
+
+   return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//| Custom deinitialization function                                 |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+   // Clean up objects
+   ma.Deinit();
+   rsi.Deinit();
+}
+
+//+------------------------------------------------------------------+
+//| Custom tick event function                                       |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+   // Calculate Moving Average
+   double maValue = ma.iMA(_Symbol, _Period, 0, MODE_SMA, PRICE_CLOSE, 0);
+
+   // Calculate RSI
+   double rsiValue = rsi.iRSI(_Symbol, _Period, RSI_Period, PRICE_CLOSE, 0);
+
+   // Check if RSI is above 70 and price is below Moving Average
+   if(rsiValue > 70 && Bid < maValue)
+   {
+      // Open a sell trade
+      trade.Sell(LotSize, _Symbol, 0, Bid, StopLoss, TakeProfit, 'IT Moving RSI EA');
+
+      // Log the trade action
+      Print('Sell trade opened: ', LotSize, ' lots at ', Bid);
+   }
+   // Check if RSI is below 30 and price is above Moving Average
+   else if(rsiValue < 30 && Ask > maValue)
+   {
+      // Open a buy trade
+      trade.Buy(LotSize, _Symbol, 0, Ask, StopLoss, TakeProfit, 'IT Moving RSI EA');
+
+      // Log the trade action
+      Print('Buy trade opened: ', LotSize, ' lots at ', Ask);
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Custom trade event function                                      |
+//+------------------------------------------------------------------+
+void OnTrade()
+{
+   // Check for closed trades
+   for(int i = 0; i < HistoryTotal(); i++)
+   {
+      if(HistoryDealType(i) == DEAL_TYPE_BALANCE || HistoryDealType(i) == DEAL_TYPE_CREDIT)
+         continue;
+
+      if(HistoryDealType(i) == DEAL_TYPE_SELL)
+      {
+         // Log the closed sell trade
+         Print('Sell trade closed: ', HistoryDealLots(i), ' lots at ', HistoryDealEntry(i), ' with profit ', HistoryDealProfit(i));
+      }
+      else if(HistoryDealType(i) == DEAL_TYPE_BUY)
+      {
+         // Log the closed buy trade
+         Print('Buy trade closed: ', HistoryDealLots(i), ' lots at ', HistoryDealEntry(i), ' with profit ', HistoryDealProfit(i));
+      }
+   }
+}
